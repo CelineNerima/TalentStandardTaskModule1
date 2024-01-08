@@ -64,6 +64,9 @@ namespace Talent.Services.Profile
             services.AddMongoDB(Configuration);
             services.AddRabbitMq(Configuration);
             services.AddAws(Configuration);
+            services.AddMvc();
+            services.Configure<AwsOptions>(Configuration.GetSection("AwsOptions"));
+            services.AddScoped<IAwsService, AwsService>();
             services.AddScoped<ICommandHandler<AuthenticateUser>, AuthenticateUserHandler>();
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
             services.AddScoped<IAuthenticationService, AuthenticationService>();

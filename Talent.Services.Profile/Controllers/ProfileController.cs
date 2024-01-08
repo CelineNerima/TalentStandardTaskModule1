@@ -20,6 +20,7 @@ using MongoDB.Driver;
 using Talent.Services.Profile.Domain.Contracts;
 using Talent.Common.Aws;
 using Talent.Services.Profile.Models;
+using Talent.Common.Services;
 
 namespace Talent.Services.Profile.Controllers
 {
@@ -30,6 +31,7 @@ namespace Talent.Services.Profile.Controllers
         private readonly IAuthenticationService _authenticationService;
         private readonly IProfileService _profileService;
         private readonly IFileService _documentService;
+        private readonly IFileService _fileService;
         private readonly IUserAppContext _userAppContext;
         private readonly IRepository<User> _userRepository;
         private readonly IRepository<UserLanguage> _userLanguageRepository;
@@ -49,6 +51,7 @@ namespace Talent.Services.Profile.Controllers
         public ProfileController(IBusClient busClient,
             IProfileService profileService,
             IFileService documentService,
+            IFileService fileService,
             IRepository<User> userRepository,
             IRepository<UserLanguage> userLanguageRepository,
             IRepository<UserDescription> personDescriptionRepository,
@@ -67,6 +70,7 @@ namespace Talent.Services.Profile.Controllers
             _busClient = busClient;
             _profileService = profileService;
             _documentService = documentService;
+            _fileService = fileService;
             _userAppContext = userAppContext;
             _userRepository = userRepository;
             _personDescriptionRespository = personDescriptionRepository;
@@ -90,9 +94,25 @@ namespace Talent.Services.Profile.Controllers
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
         public async Task<IActionResult> GetProfile()
         {
-            var userId = _userAppContext.CurrentUserId;
-            var user = await _userRepository.GetByIdAsync(userId);
-            return Json(new { Username = user.FirstName });
+
+            try
+            {
+                var userId = _userAppContext.CurrentUserId;
+                var user = await _userRepository.GetByIdAsync(userId);
+
+                if (user != null)
+                {
+                    return Json(new { Username = user.FirstName });
+                }
+                else
+                {
+                    return NotFound("User not found");
+                }
+            }
+            catch (Exception e)
+            {
+                return Json(new { Success = false, message = e });
+            }
         }
 
         [HttpGet("getProfileById")]
@@ -102,6 +122,38 @@ namespace Talent.Services.Profile.Controllers
             var userId = uid;
             var user = await _userRepository.GetByIdAsync(userId);
             return Json(new { userName = user.FirstName, createdOn = user.CreatedOn });
+        }
+
+        [HttpPost("updateProfile")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
+        public async Task<IActionResult> UpdateTalentProfile(TalentProfileViewModel model, string updaterId)
+        {
+            //Your code here;
+            //throw new NotImplementedException();
+            try
+            {
+                // Get the current user's ID from the authentication context
+                var userId = _userAppContext.CurrentUserId;
+
+                // Update the talent profile using the profile service
+                var success = await _profileService.UpdateTalentProfile(model, userId);
+
+                if (success)
+                {
+                    // Return a success response with the updated profile data
+                    return Json(new { Success = true, Message = "Profile updated successfully" });
+                }
+                else
+                {
+                    // Return an error response if the update was not successful
+                    return Json(new { Success = false, Message = "Failed to update profile" });
+                }
+            }
+            catch (Exception e)
+            {
+                // Return an error response if an exception occurs
+                return Json(new { Success = false, Message = "An error occurred while updating the profile", ErrorDetails = e.ToString() });
+            }
         }
 
         [HttpGet("isUserAuthenticated")]
@@ -138,7 +190,18 @@ namespace Talent.Services.Profile.Controllers
         public async Task<IActionResult> GetLanguages()
         {
             //Your code here;
-            throw new NotImplementedException();
+            try
+            {
+                var userId = _userAppContext.CurrentUserId;
+                
+                var languages = await _profileService.GetLanguages(userId);
+
+                return Ok(languages);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         [HttpPost("addLanguage")]
@@ -146,7 +209,20 @@ namespace Talent.Services.Profile.Controllers
         public ActionResult AddLanguage([FromBody] AddLanguageViewModel language)
         {
             //Your code here;
-            throw new NotImplementedException();
+            try
+            {
+                if (_profileService.AddNewLanguage(language))
+                {
+                    return Json(new { Success = true });
+                }
+
+            }
+            catch (Exception e)
+            {
+                return Json(new { Success = false, e.Message });
+            }
+            return Json(new { Success = false });
+
         }
 
         [HttpPost("updateLanguage")]
@@ -154,7 +230,22 @@ namespace Talent.Services.Profile.Controllers
         public async Task<ActionResult> UpdateLanguage([FromBody] AddLanguageViewModel language)
         {
             //Your code here;
-            throw new NotImplementedException();
+            try
+            {
+                var userId = _userAppContext.CurrentUserId;
+                if (userId != null)
+                {
+                    if (await _profileService.UpdateLanguage(language))
+                    {
+                        return Json(new { Success = true });
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                return Json(new { Success = false, Message = e.Message });
+            }
+            return Json(new { Success = false });
         }
 
         [HttpPost("deleteLanguage")]
@@ -162,7 +253,22 @@ namespace Talent.Services.Profile.Controllers
         public async Task<ActionResult> DeleteLanguage([FromBody] AddLanguageViewModel language)
         {
             //Your code here;
-            throw new NotImplementedException();
+            try
+            {
+                var userId = _userAppContext.CurrentUserId;
+                if (userId != null)
+                {
+                    if (await _profileService.DeleteLanguage(language))
+                    {
+                        return Json(new { Success = true });
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                return Json(new { Success = false, Message = e.Message });
+            }
+            return Json(new { Success = false });
         }
 
         [HttpGet("getSkill")]
@@ -170,36 +276,93 @@ namespace Talent.Services.Profile.Controllers
         public async Task<IActionResult> GetSkills()
         {
             //Your code here;
-            throw new NotImplementedException();
+            try
+            {
+                var userId = _userAppContext.CurrentUserId;
+
+                // Call the new method from ProfileService to get skills
+                var skills = await _profileService.GetSkills(userId);
+
+                return Ok(skills);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         [HttpPost("addSkill")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public ActionResult AddSkill([FromBody]AddSkillViewModel skill)
+        public ActionResult AddSkill([FromBody] AddSkillViewModel skill)
         {
             //Your code here;
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
+            try
+            {
+                if (_profileService.AddNewSkill(skill))
+                {
+                    return Json(new { Success = true });
+                }
+
+            }
+            catch (Exception e)
+            {
+                return Json(new { Success = false, e.Message });
+            }
+            return Json(new { Success = false });
+
         }
 
         [HttpPost("updateSkill")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public async Task<IActionResult> UpdateSkill([FromBody]AddSkillViewModel skill)
+        public async Task<IActionResult> UpdateSkill([FromBody] AddSkillViewModel skill)
         {
             //Your code here;
-            throw new NotImplementedException();
+            try
+            {
+                var userId = _userAppContext.CurrentUserId;
+                if (userId != null)
+                {
+                    if (await _profileService.UpdateSkill(skill))
+                    {
+                        return Json(new { Success = true });
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                return Json(new { Success = false, Message = e.Message });
+            }
+            return Json(new { Success = false });
         }
 
         [HttpPost("deleteSkill")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public async Task<IActionResult> DeleteSkill([FromBody]AddSkillViewModel skill)
+        public async Task<IActionResult> DeleteSkill([FromBody] AddSkillViewModel skill)
         {
             //Your code here;
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
+            try
+            {
+                var userId = _userAppContext.CurrentUserId;
+                if (userId != null)
+                {
+                    if (await _profileService.DeleteSkill(skill))
+                    {
+                        return Json(new { Success = true });
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                return Json(new { Success = false, Message = e.Message });
+            }
+            return Json(new { Success = false });
         }
 
         [HttpGet("getCertification")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public async Task<IActionResult> getCertification()
+        public async Task<IActionResult> GetCertification()
         {
             //Your code here;
             throw new NotImplementedException();
@@ -207,7 +370,7 @@ namespace Talent.Services.Profile.Controllers
 
         [HttpPost("addCertification")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public ActionResult addCertification([FromBody] AddCertificationViewModel certificate)
+        public ActionResult AddCertification([FromBody] AddCertificationViewModel certificate)
         {
             //Your code here;
             throw new NotImplementedException();
@@ -231,19 +394,65 @@ namespace Talent.Services.Profile.Controllers
 
         [HttpGet("getProfileImage")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-        public ActionResult getProfileImage(string Id)
+        public async Task<ActionResult> GetProfileImage(string Id)
         {
-            var profileUrl = _documentService.GetFileURL(Id, FileType.ProfilePhoto);
-            //Please do logic for no image available - maybe placeholder would be fine
-            return Json(new { profilePath = profileUrl });
+            try
+            {
+                var profileUrl = await _documentService.GetFileURL(Id, FileType.ProfilePhoto);
+
+                if (string.IsNullOrWhiteSpace(profileUrl))
+                {
+                    // No image available, return a placeholder URL or handle it as needed
+                    profileUrl = "/path/to/placeholder-image.jpg";
+                }
+                else
+                {
+                    //TO DO
+                }
+
+                return Json(new { profilePath = profileUrl });
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions as needed
+                Console.WriteLine($"Error in GetProfileImage: {ex.Message}");
+                return StatusCode(500, "Internal Server Error");
+            }
         }
 
         [HttpPost("updateProfilePhoto")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public async Task<ActionResult> UpdateProfilePhoto()
+        public async Task<ActionResult> UpdateProfilePhoto([FromForm] IFormFile file)
         {
-            //Your code here;
-            throw new NotImplementedException();
+            try
+            {
+                var talentId = _userAppContext.CurrentUserId;
+
+                if (file == null || file.Length == 0)
+                {
+                    return Json(new { success = false, message = "No file uploaded" });
+                }
+
+                var success = await _profileService.UpdateTalentPhoto(talentId, file);
+
+                if (success)
+                {
+                    var imageUrl = await _fileService.GetFileURL(talentId, FileType.ProfilePhoto);
+                    return Json(new { success = true, profilePath = imageUrl });
+                }
+
+                // If the update was not successful, return a detailed error message
+                return Json(new { success = false, message = "Failed to update profile photo. Please try again." });
+            }
+            catch (Exception e)
+            {
+                // Log the detailed error
+                Console.WriteLine($"Error in UpdateProfilePhoto: {e.Message}");
+
+                // Return a detailed error message to the client
+                return Json(new { success = false, message = "Failed to update profile photo. Please try again.", detailedError = e.ToString() });
+            }
+
         }
 
         [HttpPost("updateTalentCV")]
@@ -291,7 +500,7 @@ namespace Talent.Services.Profile.Controllers
 
         [HttpPost("addEducation")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public IActionResult AddEducation([FromBody]AddEducationViewModel model)
+        public IActionResult AddEducation([FromBody] AddEducationViewModel model)
         {
             //Your code here;
             throw new NotImplementedException();
@@ -299,7 +508,7 @@ namespace Talent.Services.Profile.Controllers
 
         [HttpPost("updateEducation")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public async Task<IActionResult> UpdateEducation([FromBody]AddEducationViewModel model)
+        public async Task<IActionResult> UpdateEducation([FromBody] AddEducationViewModel model)
         {
             //Your code here;
             throw new NotImplementedException();
@@ -313,7 +522,7 @@ namespace Talent.Services.Profile.Controllers
             throw new NotImplementedException();
         }
 
-     
+
         #endregion
 
         #region EmployerOrRecruiter
@@ -358,7 +567,7 @@ namespace Talent.Services.Profile.Controllers
             if (ModelState.IsValid)
             {
                 //check if employer is client 5be40d789b9e1231cc0dc51b
-                var recruiterClients =(await _recruiterRepository.GetByIdAsync(_userAppContext.CurrentUserId)).Clients;
+                var recruiterClients = (await _recruiterRepository.GetByIdAsync(_userAppContext.CurrentUserId)).Clients;
 
                 if (recruiterClients.Select(x => x.EmployerId == employer.Id).FirstOrDefault())
                 {
@@ -403,7 +612,7 @@ namespace Talent.Services.Profile.Controllers
             //Your code here;
             throw new NotImplementedException();
         }
-        
+
         #endregion
 
         #region TalentFeed
@@ -414,13 +623,13 @@ namespace Talent.Services.Profile.Controllers
         {
             String talentId = String.IsNullOrWhiteSpace(id) ? _userAppContext.CurrentUserId : id;
             var userProfile = await _profileService.GetTalentProfile(talentId);
-          
+
             return Json(new { Success = true, data = userProfile });
         }
 
         [HttpPost("updateTalentProfile")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "talent")]
-        public async Task<IActionResult> UpdateTalentProfile([FromBody]TalentProfileViewModel profile)
+        public async Task<IActionResult> UpdateTalentProfile([FromBody] TalentProfileViewModel profile)
         {
             if (ModelState.IsValid)
             {
@@ -499,7 +708,7 @@ namespace Talent.Services.Profile.Controllers
 
         [HttpPost("getEmployerListFilter")]
         [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "recruiter")]
-        public IActionResult GetEmployerListFilter([FromBody]SearchCompanyModel model)
+        public IActionResult GetEmployerListFilter([FromBody] SearchCompanyModel model)
         {
             try
             {
@@ -575,11 +784,11 @@ namespace Talent.Services.Profile.Controllers
         {
             try
             {
-                var result=await _profileService.GetClientListAsync(_userAppContext.CurrentUserId);
+                var result = await _profileService.GetClientListAsync(_userAppContext.CurrentUserId);
 
                 return Json(new { Success = true, result });
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 return Json(new { Success = false, e.Message });
             }

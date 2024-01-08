@@ -251,7 +251,6 @@
     padding-bottom: 10px !important;
     margin-left: 25px;
 }
-
 /* User profile form - END */
 /*Form style*/
 .form-footer {
@@ -1461,3 +1460,28 @@ div.ReactTags__selected a.ReactTags__remove {
     margin-bottom: 10px;
 }
 /*Manage jobs - End*/
+
+/* TalentStatus -Start*/
+/* YourCustomCheckboxStyles.css */
+.custom-checkbox input:checked + .box:before {
+    content: ''; /* Remove default checkbox icon */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #007bff; /* Customize color as needed */
+}
+
+.custom-checkbox input:checked + .box {
+    background: transparent; /* Remove default background */
+}
+
+    .custom-checkbox input:checked + .box .icon {
+        display: none; /* Hide default checkmark icon */
+    }
+
+.custom-checkbox .box:before {
+    display: none; /* Hide default box */
+}
+
+/* TalentStatus  -End*/

@@ -11,7 +11,11 @@ export default class CVUpload extends React.Component {
     }
 
     render() {
-
+        return (
+            <div>
+                <h1>CV Upload currently unavailable</h1>
+            </div>
+        )
     }
    
 }

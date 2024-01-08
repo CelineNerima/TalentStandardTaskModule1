@@ -146,47 +146,80 @@ namespace Talent.Common.Aws
             //}
             return urlString;
         }
-        
+
         public async Task<string> GetStaticUrl(string name, string bucketName)
         {
             return string.Format("http://{0}.s3.amazonaws.com/{1}", bucketName, name);
         }
 
-        public async Task<bool> PutFileToS3(string name, Stream stream, string bucketName, bool isPublic=false)
+        public async Task<bool> PutFileToS3(string name, Stream stream, string bucketName, bool isPublic = false)
+
         {
+
             PutObjectRequest s3PutRequest = new PutObjectRequest();
+
             s3PutRequest = new PutObjectRequest
+
             {
+
                 InputStream = stream,
+
                 BucketName = bucketName
+
             };
+
             if (isPublic)
+
             {
+
                 s3PutRequest.CannedACL = S3CannedACL.PublicRead;
+
             }
 
             //key - new file name
+
             if (!string.IsNullOrWhiteSpace(name))
+
             {
+
                 s3PutRequest.Key = name;
+
             }
+
             s3PutRequest.Headers.Expires = DateTime.Now.AddHours(24);
+
             try
+
             {
+
                 using (client = new AmazonS3Client(await GetTemporaryCredentials(), RegionEndpoint.APSoutheast2))
+
                 {
+
                     PutObjectResponse s3PutResponse = await client.PutObjectAsync(s3PutRequest);
+
                     if (s3PutResponse.HttpStatusCode == HttpStatusCode.OK)
+
                     {
+
                         return true;
+
                     }
+
                     return false;
+
                 }
+
             }
+
             catch (Exception ex)
+
             {
+
                 return false;
+
             }
+
         }
 
         public async Task<bool> RemoveFileFromS3(string name, string bucketName)
@@ -199,16 +232,17 @@ namespace Talent.Common.Aws
 
             try
             {
-                using(client = new AmazonS3Client(await GetTemporaryCredentials(), RegionEndpoint.APSoutheast2))
+                using (client = new AmazonS3Client(await GetTemporaryCredentials(), RegionEndpoint.APSoutheast2))
                 {
                     DeleteObjectResponse response = await client.DeleteObjectAsync(deleteRequest);
-                    if(response.HttpStatusCode == HttpStatusCode.NoContent)
+                    if (response.HttpStatusCode == HttpStatusCode.NoContent)
                     {
                         return true;
                     }
                     return false;
                 }
-            }catch(AmazonS3Exception e)
+            }
+            catch (AmazonS3Exception e)
             {
                 return false;
             }
